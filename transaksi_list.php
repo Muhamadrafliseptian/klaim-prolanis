@@ -12,17 +12,14 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     try {
         $pdo->beginTransaction();
         
-        // Hapus detail transaksi terlebih dahulu
         $stmt = $pdo->prepare("DELETE FROM detail_transaksi WHERE transaksi_id = ?");
         $stmt->execute([$id]);
         
-        // Hapus transaksi utama
         $stmt = $pdo->prepare("DELETE FROM transaksi WHERE id = ?");
         $stmt->execute([$id]);
         
         $pdo->commit();
         
-        // Set pesan sukses
         $_SESSION['flash_message'] = 'Data transaksi berhasil dihapus!';
         $_SESSION['flash_type'] = 'success';
     } catch (Exception $e) {
@@ -44,7 +41,6 @@ try {
     ";
     $transaksi_list = $pdo->query($query)->fetchAll();
 } catch (PDOException $e) {
-    // Fallback jika t.created_at belum ada atau bermasalah
     $query = "
         SELECT t.*, p.nama as nama_pasien 
         FROM transaksi t
@@ -53,7 +49,6 @@ try {
     $transaksi_list = $pdo->query($query)->fetchAll();
 }
 
-// Ambil flash message dari session
 $flash_message = isset($_SESSION['flash_message']) ? $_SESSION['flash_message'] : '';
 $flash_type = isset($_SESSION['flash_type']) ? $_SESSION['flash_type'] : '';
 unset($_SESSION['flash_message']);
@@ -67,42 +62,6 @@ unset($_SESSION['flash_type']);
     <title>Daftar Transaksi - Klinik LAB</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdn.datatables.net/1.13.5/css/dataTables.tailwindcss.min.css" rel="stylesheet">
-    
-    <style>
-        /* Custom adjustment DataTables agar serasi dengan Tailwind */
-        .dataTables_wrapper .dataTables_length select {
-            padding-right: 2.5rem !important;
-            border-radius: 0.75rem !important;
-            border-color: #e2e8f0 !important;
-        }
-        .dataTables_wrapper .dataTables_filter input {
-            border-radius: 0.75rem !important;
-            padding: 0.5rem 1rem !important;
-            border-color: #e2e8f0 !important;
-        }
-        
-        /* Modal backdrop */
-        .modal-backdrop {
-            background-color: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(4px);
-        }
-        
-        /* Animasi flash message */
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .flash-message {
-            animation: slideDown 0.3s ease-out;
-        }
-    </style>
 </head>
 <body class="bg-slate-50 font-sans antialiased">
 
@@ -128,81 +87,84 @@ unset($_SESSION['flash_type']);
 
             <!-- Flash Message -->
             <?php if($flash_message): ?>
-            <div class="flash-message p-4 rounded-xl flex items-center space-x-3 text-sm <?= $flash_type == 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800' ?>">
+            <div class="p-4 rounded-xl flex items-center space-x-3 text-sm <?= $flash_type == 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-rose-50 border border-rose-200 text-rose-800' ?>">
                 <i class="bi <?= $flash_type == 'success' ? 'bi-check-circle-fill text-emerald-500' : 'bi-exclamation-triangle-fill text-rose-500' ?> text-lg"></i>
                 <span class="font-medium"><?= htmlspecialchars($flash_message) ?></span>
-                <button onclick="this.parentElement.remove()" class="ml-auto text-slate-400 hover:text-slate-600">
-                    <i class="bi bi-x-lg"></i>
-                </button>
             </div>
             <?php endif; ?>
 
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden mx-auto">
+            <!-- Container Tabel Mode Terang -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-auto">
                 
-                <div class="bg-gradient-to-r from-slate-900 to-slate-800 p-5 text-white flex items-center justify-between">
+                <!-- Header Mode Terang -->
+                <div class="bg-white p-5 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div class="flex items-center space-x-3">
-                        <div class="p-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl">
+                        <div class="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl">
                             <i class="bi bi-receipt text-xl"></i>
                         </div>
                         <div>
-                            <h2 class="text-lg font-bold tracking-wide">Riwayat Transaksi & Invoice</h2>
-                            <p class="text-xs text-slate-400">Memantau status pembayaran, data invoice billing, dan penanganan billing pasien.</p>
+                            <h2 class="text-lg font-bold text-slate-800 tracking-tight">Riwayat Transaksi & Invoice</h2>
+                            <p class="text-xs text-slate-500">Memantau status pembayaran dan pencatatan billing pasien.</p>
                         </div>
                     </div>
-                    <span class="text-xs bg-white/10 px-3 py-1 rounded-full text-slate-300">
-                        <?= count($transaksi_list) ?> Transaksi
-                    </span>
+                    
+                    <!-- Fitur Pencarian Cepat -->
+                    <div class="relative w-full sm:w-64">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i class="bi bi-search text-xs"></i>
+                        </span>
+                        <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Cari invoice/pasien..." 
+                               class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-hidden focus:border-emerald-500 transition-all">
+                    </div>
                 </div>
 
                 <div class="p-6 overflow-x-auto">
                     
-                    <table id="transaksiTable" class="w-full text-sm text-left text-slate-600 display border-collapse">
-                        <thead class="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
+                    <table class="w-full text-sm text-left text-slate-600">
+                        <thead class="text-xs uppercase bg-slate-100 text-slate-700 font-bold border-y border-slate-200">
                             <tr>
-                                <th class="px-4 py-3.5 rounded-l-lg">No. Invoice</th>
+                                <th class="px-4 py-3.5">No. Invoice</th>
                                 <th class="px-4 py-3.5">Nama Pasien</th>
                                 <th class="px-4 py-3.5">Tanggal Invoice</th>
                                 <th class="px-4 py-3.5">Tanggal Periksa</th>
                                 <th class="px-4 py-3.5">Total Harga</th>
                                 <th class="px-4 py-3.5 text-center">Status</th>
-                                <th class="px-4 py-3.5 text-center rounded-r-lg">Aksi</th>
+                                <th class="px-4 py-3.5 text-center">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody id="tableBody" class="divide-y divide-slate-100">
                             <?php foreach($transaksi_list as $trx): ?>
-                            <tr class="hover:bg-slate-50/80 transition-colors">
-                                <td class="px-4 py-4 font-mono text-xs font-bold tracking-wider text-slate-700">
+                            <tr class="table-row hover:bg-slate-50 transition-colors">
+                                <td class="px-4 py-4 font-mono text-xs font-bold text-slate-800">
                                     <?= htmlspecialchars($trx['no_invoice']) ?>
                                 </td>
                                 
-                                <td class="px-4 py-4 font-bold text-slate-800">
+                                <td class="px-4 py-4 font-semibold text-slate-800">
                                     <?= htmlspecialchars($trx['nama_pasien']) ?>
                                 </td>
                                 
-                                <td class="px-4 py-4 text-slate-500 whitespace-nowrap">
+                                <td class="px-4 py-4 text-slate-600 whitespace-nowrap">
                                     <i class="bi bi-calendar3 text-slate-400 mr-1"></i>
                                     <?= $trx['tgl_invoice'] ? date('d/m/Y', strtotime($trx['tgl_invoice'])) : '-' ?>
                                 </td>
                                 
-                                <td class="px-4 py-4 text-slate-500 whitespace-nowrap">
+                                <td class="px-4 py-4 text-slate-600 whitespace-nowrap">
                                     <i class="bi bi-clock text-slate-400 mr-1"></i>
                                     <?= date('d/m/Y H:i', strtotime($trx['tanggal_transaksi'])) ?>
                                 </td>
                                 
-                                <td class="px-4 py-4 font-semibold text-slate-900">
+                                <td class="px-4 py-4 font-bold text-slate-900">
                                     Rp <?= number_format($trx['total_harga'], 0, ',', '.') ?>
                                 </td>
                                 
                                 <td class="px-4 py-4 text-center whitespace-nowrap">
                                     <?php if(strtolower($trx['status']) == 'disetujui'): ?>
-                                        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center space-x-1">
-                                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                                            <span>DISETUJUI</span>
+                                        <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-bold uppercase tracking-wider">
+                                            DISETUJUI
                                         </span>
                                     <?php else: ?>
-                                        <span class="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center space-x-1">
-                                            <span class="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                                            <span>PENDING</span>
+                                        <span class="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[11px] font-bold uppercase tracking-wider">
+                                            PENDING
                                         </span>
                                     <?php endif; ?>
                                 </td>
@@ -210,17 +172,17 @@ unset($_SESSION['flash_type']);
                                 <td class="px-4 py-4 text-center whitespace-nowrap">
                                     <div class="flex items-center justify-center space-x-1.5">
                                         <a href="invoice.php?id=<?= $trx['id'] ?>" 
-                                           class="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:text-white hover:bg-blue-600 rounded-lg text-xs font-bold transition-all border border-blue-200 hover:border-blue-600"
+                                           class="p-2 bg-slate-100 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-bold transition-all border border-slate-200"
                                            title="Lihat Detail">
                                             <i class="bi bi-eye"></i>
                                         </a>
                                         <a href="transaksi_edit.php?id=<?= $trx['id'] ?>" 
-                                           class="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-amber-50 text-amber-700 hover:text-white hover:bg-amber-600 rounded-lg text-xs font-bold transition-all border border-amber-200 hover:border-amber-600"
+                                           class="p-2 bg-slate-100 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg text-xs font-bold transition-all border border-slate-200"
                                            title="Edit Transaksi">
                                             <i class="bi bi-pencil"></i>
                                         </a>
                                         <button onclick="confirmDelete(<?= $trx['id'] ?>, '<?= addslashes($trx['no_invoice']) ?>')" 
-                                                class="inline-flex items-center space-x-1 px-2.5 py-1.5 bg-rose-50 text-rose-700 hover:text-white hover:bg-rose-600 rounded-lg text-xs font-bold transition-all border border-rose-200 hover:border-rose-600"
+                                                class="p-2 bg-slate-100 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold transition-all border border-slate-200"
                                                 title="Hapus Transaksi">
                                             <i class="bi bi-trash3"></i>
                                         </button>
@@ -231,14 +193,14 @@ unset($_SESSION['flash_type']);
                         </tbody>
                     </table>
 
-                    <div class="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
-                        <a href="dashboard.php" class="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-200 transition-colors inline-block">
-                            <i class="bi bi-arrow-left mr-1"></i> Kembali ke Dashboard
-                        </a>
-                        <a href="transaksi_form.php" 
-                           class="px-4 py-2 bg-emerald-500 text-white text-sm font-semibold rounded-xl hover:bg-emerald-600 transition-colors inline-block">
-                            <i class="bi bi-plus-lg mr-1"></i> Transaksi Baru
-                        </a>
+                    <!-- Pagination Ringan (Fast & Clean) -->
+                    <div class="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+                        <div>
+                            Menampilkan <span id="pageInfo" class="font-bold text-slate-800">1 - 10</span> dari <span class="font-bold text-slate-800"><?= count($transaksi_list) ?></span> data
+                        </div>
+                        <div class="flex items-center space-x-1" id="paginationControls">
+                            <!-- Tombol Pagination di-render via JavaScript -->
+                        </div>
                     </div>
 
                 </div>
@@ -250,37 +212,33 @@ unset($_SESSION['flash_type']);
     <!-- Modal Konfirmasi Hapus -->
     <div id="deleteModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div class="fixed inset-0 modal-backdrop transition-opacity" onclick="closeDeleteModal()"></div>
+            <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onclick="closeDeleteModal()"></div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-200">
-                <div class="bg-rose-50 px-6 py-4 border-b border-rose-200">
-                    <h3 class="text-lg font-bold text-rose-800 flex items-center space-x-2">
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border border-slate-200">
+                <div class="bg-rose-50 p-5 border-b border-rose-100">
+                    <h3 class="text-base font-bold text-rose-800 flex items-center space-x-2">
                         <i class="bi bi-exclamation-triangle-fill text-rose-600"></i>
-                        <span>Konfirmasi Hapus</span>
+                        <span>Konfirmasi Hapus Data</span>
                     </h3>
                 </div>
                 
                 <div class="p-6 space-y-4">
-                    <p class="text-slate-700">
+                    <p class="text-slate-600 text-sm">
                         Apakah Anda yakin ingin menghapus transaksi dengan invoice:
                     </p>
-                    <p class="text-lg font-bold text-slate-900 font-mono bg-slate-50 p-3 rounded-xl text-center border border-slate-200" id="deleteInvoiceText">
+                    <p class="text-base font-bold text-slate-900 font-mono bg-slate-50 p-3 rounded-xl text-center border border-slate-200" id="deleteInvoiceText">
                         -
                     </p>
-                    <p class="text-sm text-rose-600">
-                        <i class="bi bi-info-circle"></i>
-                        Tindakan ini tidak dapat dibatalkan dan akan menghapus semua detail transaksi terkait.
-                    </p>
                     
-                    <div class="flex items-center space-x-3 pt-2">
+                    <div class="flex items-center space-x-3 pt-3">
                         <button onclick="closeDeleteModal()" 
-                                class="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-200 transition-colors">
+                                class="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors">
                             Batal
                         </button>
                         <a href="#" id="deleteConfirmLink" 
-                           class="flex-1 px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-semibold hover:bg-rose-600 transition-colors text-center">
-                            <i class="bi bi-trash3 mr-1"></i> Hapus
+                           class="flex-1 px-4 py-2.5 bg-rose-500 text-white rounded-xl text-xs font-bold hover:bg-rose-600 transition-colors text-center">
+                            Hapus
                         </a>
                     </div>
                 </div>
@@ -288,21 +246,63 @@ unset($_SESSION['flash_type']);
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.5/js/dataTables.tailwindcss.min.js"></script>
     <script>
-        $(document).ready(function() {
-            $('#transaksiTable').DataTable({
-                "language": {
-                    "url": "https://cdn.datatables.net/plug-ins/1.13.5/i18n/id.json"
-                },
-                "pageLength": 10,
-                "responsive": true,
-                "order": [] // Menonaktifkan auto-sort default
-            });
-        });
+        // Pagination & Searching Ringan Pure JS (Tanpa CDN Berat)
+        const rowsPerPage = 10;
+        let currentPage = 1;
+        const allRows = Array.from(document.querySelectorAll('.table-row'));
+        let filteredRows = [...allRows];
 
+        function renderTable() {
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+
+            allRows.forEach(row => row.style.display = 'none');
+            filteredRows.slice(start, end).forEach(row => row.style.display = '');
+
+            // Update Text Info
+            const countStart = filteredRows.length > 0 ? start + 1 : 0;
+            const countEnd = Math.min(end, filteredRows.length);
+            document.getElementById('pageInfo').innerText = `${countStart} - ${countEnd}`;
+
+            // Render Pagination Buttons
+            let paginationHTML = '';
+            paginationHTML += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white font-semibold">Prev</button>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === currentPage) {
+                    paginationHTML += `<button class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white font-bold">${i}</button>`;
+                } else {
+                    paginationHTML += `<button onclick="changePage(${i})" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 font-semibold">${i}</button>`;
+                }
+            }
+            
+            paginationHTML += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white font-semibold">Next</button>`;
+            
+            document.getElementById('paginationControls').innerHTML = paginationHTML;
+        }
+
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderTable();
+        }
+
+        function searchTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            filteredRows = allRows.filter(row => row.innerText.toLowerCase().includes(query));
+            currentPage = 1;
+            renderTable();
+        }
+
+        // Jalankan awal
+        renderTable();
+
+        // Modal Functionality
         function confirmDelete(id, invoice) {
             document.getElementById('deleteInvoiceText').innerText = invoice;
             document.getElementById('deleteConfirmLink').href = 'transaksi_list.php?delete=' + id;
@@ -312,26 +312,6 @@ unset($_SESSION['flash_type']);
         function closeDeleteModal() {
             document.getElementById('deleteModal').classList.add('hidden');
         }
-
-        // Close modal jika klik di luar
-        document.addEventListener('click', function(e) {
-            const modal = document.getElementById('deleteModal');
-            if (e.target === modal || e.target.classList.contains('modal-backdrop')) {
-                closeDeleteModal();
-            }
-        });
-
-        // Flash message auto dismiss setelah 5 detik
-        setTimeout(function() {
-            const flash = document.querySelector('.flash-message');
-            if (flash) {
-                flash.style.opacity = '0';
-                flash.style.transition = 'opacity 0.5s ease';
-                setTimeout(function() {
-                    flash.remove();
-                }, 500);
-            }
-        }, 5000);
     </script>
 </body>
 </html>
