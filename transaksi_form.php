@@ -7,9 +7,6 @@ if (!isLoggedIn()) {
     redirect('login.php');
 }
 
-/**
- * Fungsi untuk mendapatkan nomor invoice dengan format 001/UD.06.01
- */
 function buatNomorInvoice() {
     global $pdo;
     try {
@@ -28,28 +25,24 @@ function buatNomorInvoice() {
     }
 }
 
-// Ambil list lengkap pasien & jenis pemeriksaan
-$pasien_list = $pdo->query("SELECT * FROM pasien ORDER BY nama ASC")->fetchAll();
+// Hanya ambil jenis pemeriksaan (Data pasien dipanggil via AJAX)
 $pemeriksaan_list = $pdo->query("SELECT * FROM jenis_pemeriksaan ORDER BY nama_pemeriksaan ASC")->fetchAll();
 
 $selected_pasien = null;
 $preview_invoice = buatNomorInvoice();
 
-// Tangani input POST jika pasien dipilih dari popup modal atau form utama
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
-    // AMBIL DATA PASIEN SAAT ID TERPILIH
     if (!empty($_POST['pasien_id'])) {
         $stmt = $pdo->prepare("SELECT * FROM pasien WHERE id = ?");
         $stmt->execute([$_POST['pasien_id']]);
         $selected_pasien = $stmt->fetch();
     }
     
-    // PROSES SIMPAN TRANSAKSI
     if (isset($_POST['simpan_transaksi'])) {
         try {
             $pasien_id = $_POST['pasien_id'];
-            $tgl_invoice = $_POST['tgl_invoice']; // Menangkap data tanggal invoice
+            $tgl_invoice = $_POST['tgl_invoice'];
             
             if (empty($tgl_invoice)) {
                 throw new Exception("Silakan tentukan tanggal invoice terlebih dahulu.");
@@ -77,8 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $total += $item['harga'];
             }
             
-            // Query diubah untuk memasukkan kolom tgl_invoice ke database
-            $stmt = $pdo->prepare("INSERT INTO transaksi (no_invoice, tgl_invoice, pasien_id, tanggal_transaksi, total_harga, status, created_by) VALUES (?, ?, ?, NOW(), ?, 'belum lunas', ?)");
+            // Sesuaikan kolom status dengan enum DB Anda (misal: 'pending')
+            $stmt = $pdo->prepare("INSERT INTO transaksi (no_invoice, tgl_invoice, pasien_id, tanggal_transaksi, total_harga, status, created_by) VALUES (?, ?, ?, NOW(), ?, 'pending', ?)");
             $stmt->execute([$no_invoice, $tgl_invoice, $pasien_id, $total, $_SESSION['user_id']]);
             $transaksi_id = $pdo->lastInsertId();
             
@@ -266,6 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </main>
     </div>
 
+    <!-- Modal Pasien Ringan dengan AJAX -->
     <div id="pasienModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" onclick="closeModal()"></div>
@@ -287,7 +281,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                             <i class="bi bi-search"></i>
                         </span>
-                        <input type="text" id="keywordPasien" onkeyup="cariPasienLive()" placeholder="Ketik Nama atau NIK Pasien..." 
+                        <input type="text" id="keywordPasien" oninput="cariPasienAJAX()" placeholder="Ketik Nama atau NIK Pasien..." 
                                class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10">
                     </div>
 
@@ -301,20 +295,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 </tr>
                             </thead>
                             <tbody id="tbodyPasien">
-                                <?php foreach($pasien_list as $p): ?>
-                                <tr class="row-pasien hover:bg-slate-50 transition-colors">
-                                    <td class="p-3 font-semibold text-slate-800 nama-target"><?= htmlspecialchars($p['nama']) ?></td>
-                                    <td class="p-3 font-mono text-xs text-slate-500 nik-target"><?= htmlspecialchars($p['nik']) ?></td>
-                                    <td class="p-3 text-center">
-                                        <form method="POST">
-                                            <input type="hidden" name="pasien_id" value="<?= $p['id'] ?>">
-                                            <button type="submit" name="pilih_pasien" class="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-colors">
-                                                Pilih
-                                            </button>
-                                        </form>
-                                    </td>
+                                <tr>
+                                    <td colspan="3" class="p-4 text-center text-slate-400 text-xs">Mengambil data pasien...</td>
                                 </tr>
-                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -324,28 +307,64 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </div>
 
     <script>
+        let debounceTimer;
+
         function openModal() {
             document.getElementById('pasienModal').classList.remove('hidden');
             document.getElementById('keywordPasien').focus();
+            fetchPasien(''); // Load data default saat modal dibuka
         }
+
         function closeModal() {
             document.getElementById('pasienModal').classList.add('hidden');
         }
 
-        function cariPasienLive() {
-            let input = document.getElementById("keywordPasien").value.toLowerCase();
-            let rows = document.getElementsByClassName("row-pasien");
+        function cariPasienAJAX() {
+            clearTimeout(debounceTimer);
+            const query = document.getElementById("keywordPasien").value;
+            // Debounce 300ms agar server tidak terbebani setiap ketikan tombol
+            debounceTimer = setTimeout(() => {
+                fetchPasien(query);
+            }, 300);
+        }
 
-            for (let i = 0; i < rows.length; i++) {
-                let nama = rows[i].querySelector(".nama-target").innerText.toLowerCase();
-                let nik = rows[i].querySelector(".nik-target").innerText.toLowerCase();
-                
-                if (nama.includes(input) || nik.includes(input)) {
-                    rows[i].style.display = "";
-                } else {
-                    rows[i].style.display = "none";
-                }
-            }
+        function fetchPasien(query) {
+            const tbody = document.getElementById('tbodyPasien');
+            tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-slate-400 text-xs">Mencari...</td></tr>';
+
+            fetch(`api_search_pasien.php?q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-slate-400 text-xs">Pasien tidak ditemukan.</td></tr>';
+                        return;
+                    }
+
+                    let html = '';
+                    data.forEach(p => {
+                        html += `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="p-3 font-semibold text-slate-800">${escapeHtml(p.nama)}</td>
+                            <td class="p-3 font-mono text-xs text-slate-500">${escapeHtml(p.nik)}</td>
+                            <td class="p-3 text-center">
+                                <form method="POST">
+                                    <input type="hidden" name="pasien_id" value="${p.id}">
+                                    <button type="submit" name="pilih_pasien" class="px-3 py-1 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-colors">
+                                        Pilih
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                })
+                .catch(() => {
+                    tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-rose-500 text-xs">Gagal mengambil data.</td></tr>';
+                });
+        }
+
+        function escapeHtml(text) {
+            return String(text ?? '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#032;");
         }
 
         function hitungTotal() {
