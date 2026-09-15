@@ -20,179 +20,297 @@ $transaksi = $stmt->fetchAll();
 
 $total_pendapatan = array_sum(array_column($transaksi, 'total_harga'));
 $total_transaksi = count($transaksi);
-$total_lunas = count(array_filter($transaksi, function($t) { return $t['status'] == 'lunas'; }));
+// Menghitung status disetujui atau lunas
+$total_lunas = count(array_filter($transaksi, function($t) { 
+    $s = strtolower($t['status']);
+    return $s == 'lunas' || $s == 'disetujui'; 
+}));
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Keuangan</title>
+    <title>Laporan Keuangan - Klinik LAB</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <!-- Custom CSS untuk print -->
     <style>
         @media print {
-            .no-print {
-                display: none !important;
-            }
-            .sidebar-print-hide {
-                display: none !important;
-            }
-            .main-content-print {
-                margin-left: 0 !important;
-                padding: 0 !important;
-            }
-            .card {
-                box-shadow: none !important;
-                border: 1px solid #ddd !important;
-            }
-            .btn-print-hide {
-                display: none !important;
-            }
+            .no-print { display: none !important; }
+            body { background-color: #ffffff !important; }
+            main { padding: 0 !important; }
+            .print-border { border: 1px solid #e2e8f0 !important; border-radius: 0 !important; }
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="flex min-h-screen">
-        <!-- Sidebar -->
-        <?php include 'sidebar.php'; ?>
+<body class="bg-slate-50 font-sans antialiased">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
         
-        <!-- Main Content -->
-        <div class="flex-1 ml-0 transition-all duration-300">
-            <div class="p-6">
-                <!-- Header -->
-                <div class="mb-6">
-                    <h1 class="text-2xl font-bold text-gray-800">Laporan Keuangan</h1>
-                    <p class="text-gray-600">Periode: <?= date('d/m/Y', strtotime($start_date)) ?> - <?= date('d/m/Y', strtotime($end_date)) ?></p>
+        <?php include 'sidebar.php'; ?>
+
+        <main class="flex-1 p-4 md:p-6 space-y-4 min-w-0">
+            
+            <!-- Breadcrumb & Header -->
+            <div class="flex items-center justify-between flex-wrap gap-2 no-print">
+                <div class="flex items-center space-x-2 text-xs text-slate-400">
+                    <a href="dashboard.php" class="hover:text-emerald-500">Dashboard</a>
+                    <span>/</span>
+                    <span class="text-slate-600 font-medium">Laporan Keuangan</span>
                 </div>
                 
-                <!-- Filter Form -->
-                <div class="bg-white rounded-lg shadow-md p-6 mb-6 no-print">
-                    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Dari Tanggal</label>
-                            <input type="date" name="start_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="<?= $start_date ?>">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Sampai Tanggal</label>
-                            <input type="date" name="end_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="<?= $end_date ?>">
-                        </div>
-                        <div class="flex items-end">
-                            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                                <i class="bi bi-search me-2"></i>Filter
-                            </button>
-                        </div>
-                        <div class="flex items-end">
-                            <button type="button" onclick="window.print()" class="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-                                <i class="bi bi-printer me-2"></i>Cetak
-                            </button>
-                        </div>
-                    </form>
-                </div>
-                
-                <!-- Statistik Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-lg p-6 text-white">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-green-100 text-sm uppercase tracking-wide">Total Pendapatan</p>
-                                <p class="text-3xl font-bold mt-2">Rp <?= number_format($total_pendapatan, 0, ',', '.') ?></p>
-                            </div>
-                            <i class="bi bi-currency-dollar text-5xl opacity-50"></i>
-                        </div>
+                <button type="button" onclick="window.print()" 
+                        class="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition-all flex items-center space-x-1.5 shadow-xs">
+                    <i class="bi bi-printer"></i>
+                    <span>Cetak Laporan</span>
+                </button>
+            </div>
+
+            <!-- Header Cetak Rekap (Hanya Tampil Saat Print) -->
+            <div class="hidden print:block mb-4 text-center border-b border-slate-300 pb-3">
+                <h1 class="text-xl font-bold text-slate-900">LAPORAN KEUANGAN LABORATORIUM</h1>
+                <p class="text-xs text-slate-600">Periode: <?= date('d/m/Y', strtotime($start_date)) ?> s/d <?= date('d/m/Y', strtotime($end_date)) ?></p>
+            </div>
+
+            <!-- Filter Tanggal -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-4 no-print">
+                <form method="GET" class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 items-end">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Dari Tanggal</label>
+                        <input type="date" name="start_date" value="<?= $start_date ?>" 
+                               class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-hidden focus:border-emerald-500">
                     </div>
-                    
-                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-blue-100 text-sm uppercase tracking-wide">Total Transaksi</p>
-                                <p class="text-3xl font-bold mt-2"><?= $total_transaksi ?></p>
-                            </div>
-                            <i class="bi bi-receipt text-5xl opacity-50"></i>
-                        </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Sampai Tanggal</label>
+                        <input type="date" name="end_date" value="<?= $end_date ?>" 
+                               class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-hidden focus:border-emerald-500">
                     </div>
-                    
-                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-purple-100 text-sm uppercase tracking-wide">Transaksi Lunas</p>
-                                <p class="text-3xl font-bold mt-2"><?= $total_lunas ?></p>
-                            </div>
-                            <i class="bi bi-check-circle text-5xl opacity-50"></i>
-                        </div>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 py-1.5 bg-emerald-500 text-white text-xs font-semibold rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center space-x-1">
+                            <i class="bi bi-filter"></i>
+                            <span>Filter</span>
+                        </button>
+                        <a href="laporan.php" class="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Cards Ringkasan -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between print-border">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Pendapatan</p>
+                        <h3 class="text-lg font-black text-emerald-600 mt-0.5">Rp <?= number_format($total_pendapatan, 0, ',', '.') ?></h3>
+                    </div>
+                    <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg no-print">
+                        <i class="bi bi-wallet2 text-xl"></i>
                     </div>
                 </div>
                 
-                <!-- Tabel Transaksi -->
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-800 text-white">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-sm font-semibold">No. Invoice</th>
-                                    <th class="px-6 py-3 text-left text-sm font-semibold">Pasien</th>
-                                    <th class="px-6 py-3 text-left text-sm font-semibold">Tanggal</th>
-                                    <th class="px-6 py-3 text-right text-sm font-semibold">Total</th>
-                                    <th class="px-6 py-3 text-center text-sm font-semibold">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                <?php if(count($transaksi) > 0): ?>
-                                    <?php foreach($transaksi as $trx): ?>
-                                    <tr class="hover:bg-gray-50 transition-colors">
-                                        <td class="px-6 py-4 text-sm font-medium text-gray-900"><?= htmlspecialchars($trx['no_invoice']) ?></td>
-                                        <td class="px-6 py-4 text-sm text-gray-600"><?= htmlspecialchars($trx['nama_pasien']) ?></td>
-                                        <td class="px-6 py-4 text-sm text-gray-600"><?= date('d/m/Y H:i', strtotime($trx['tanggal_transaksi'])) ?></td>
-                                        <td class="px-6 py-4 text-sm text-right font-medium text-gray-900">Rp <?= number_format($trx['total_harga'], 0, ',', '.') ?></td>
-                                        <td class="px-6 py-4 text-center">
-                                            <?php if($trx['status'] == 'lunas'): ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                    <i class="bi bi-check-circle-fill me-1 text-xs"></i> Lunas
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                    <i class="bi bi-clock-fill me-1 text-xs"></i> <?= ucfirst($trx['status']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                                            <i class="bi bi-inbox text-4xl mb-2 block"></i>
-                                            Tidak ada data transaksi untuk periode ini
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                            <?php if(count($transaksi) > 0): ?>
-                            <tfoot class="bg-gray-50 font-semibold">
-                                <tr>
-                                    <td colspan="3" class="px-6 py-3 text-right text-sm">Total Keseluruhan:</td>
-                                    <td class="px-6 py-3 text-right text-sm font-bold text-gray-900">Rp <?= number_format($total_pendapatan, 0, ',', '.') ?></td>
-                                    <td class="px-6 py-3"></td>
-                                </tr>
-                            </tfoot>
-                            <?php endif; ?>
-                        </table>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between print-border">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Transaksi</p>
+                        <h3 class="text-lg font-black text-slate-800 mt-0.5"><?= number_format($total_transaksi, 0, ',', '.') ?></h3>
+                    </div>
+                    <div class="p-2.5 bg-blue-50 text-blue-600 rounded-lg no-print">
+                        <i class="bi bi-receipt text-xl"></i>
                     </div>
                 </div>
-                
-                <!-- Tombol Aksi -->
-                <div class="mt-6 flex gap-3 no-print">
-                    <a href="dashboard.php" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                        <i class="bi bi-arrow-left me-2"></i> Kembali
-                    </a>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between print-border">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disetujui / Lunas</p>
+                        <h3 class="text-lg font-black text-indigo-600 mt-0.5"><?= number_format($total_lunas, 0, ',', '.') ?></h3>
+                    </div>
+                    <div class="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg no-print">
+                        <i class="bi bi-check-circle text-xl"></i>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Tabel Data Mode Terang -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden print-border">
+                
+                <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white no-print">
+                    <div class="flex items-center space-x-2">
+                        <i class="bi bi-bar-chart-line text-emerald-600 text-lg"></i>
+                        <h2 class="text-sm font-bold text-slate-800">Rincian Transaksi</h2>
+                    </div>
+                    
+                    <div class="relative w-full sm:w-56">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
+                            <i class="bi bi-search text-xs"></i>
+                        </span>
+                        <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Cari invoice/pasien..." 
+                               class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:outline-hidden focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div class="w-full">
+                    <table class="w-full text-xs text-left text-slate-600">
+                        <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase">
+                            <tr>
+                                <th class="px-3 py-2.5 w-32">No. Invoice</th>
+                                <th class="px-3 py-2.5">Nama Pasien</th>
+                                <th class="px-3 py-2.5 w-36">Tanggal Periksa</th>
+                                <th class="px-3 py-2.5 w-28">Total</th>
+                                <th class="px-3 py-2.5 w-24 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-100">
+                            <?php if(count($transaksi) > 0): ?>
+                                <?php foreach($transaksi as $trx): ?>
+                                <tr class="table-row hover:bg-slate-50 transition-colors">
+                                    <td class="px-3 py-2.5 font-mono font-bold text-slate-800">
+                                        <?= htmlspecialchars($trx['no_invoice']) ?>
+                                    </td>
+                                    <td class="px-3 py-2.5 font-semibold text-slate-800">
+                                        <?= htmlspecialchars($trx['nama_pasien']) ?>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-slate-500">
+                                        <?= date('d/m/Y H:i', strtotime($trx['tanggal_transaksi'])) ?>
+                                    </td>
+                                    <td class="px-3 py-2.5 font-bold text-slate-900">
+                                        Rp <?= number_format($trx['total_harga'], 0, ',', '.') ?>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-center">
+                                        <?php 
+                                        $st = strtolower($trx['status']);
+                                        if($st == 'disetujui' || $st == 'lunas'): 
+                                        ?>
+                                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-bold uppercase">
+                                                <?= htmlspecialchars($trx['status']) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-[10px] font-bold uppercase">
+                                                <?= htmlspecialchars($trx['status']) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="5" class="px-3 py-8 text-center text-slate-400">
+                                        Tidak ada data transaksi pada periode ini.
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                        <?php if(count($transaksi) > 0): ?>
+                        <tfoot class="bg-slate-50 font-bold border-t border-slate-200">
+                            <tr>
+                                <td colspan="3" class="px-3 py-2.5 text-right text-slate-700">Total Keseluruhan:</td>
+                                <td class="px-3 py-2.5 text-emerald-600 text-sm">Rp <?= number_format($total_pendapatan, 0, ',', '.') ?></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                        <?php endif; ?>
+                    </table>
+
+                    <!-- Pagination Ringkas -->
+                    <div class="p-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 bg-white no-print">
+                        <div>
+                            Menampilkan <span id="pageInfo" class="font-bold text-slate-800">0 - 0</span> dari <span class="font-bold text-slate-800"><?= count($transaksi) ?></span>
+                        </div>
+                        <div class="flex items-center space-x-1" id="paginationControls"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="pt-2 no-print">
+                <a href="dashboard.php" class="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 transition-colors inline-flex items-center space-x-1">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>Kembali ke Dashboard</span>
+                </a>
+            </div>
+
+        </main>
     </div>
+
+    <script>
+        const rowsPerPage = 10;
+        let currentPage = 1;
+        const allRows = Array.from(document.querySelectorAll('.table-row'));
+        let filteredRows = [...allRows];
+
+        function renderTable() {
+            if (allRows.length === 0) return;
+
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+
+            allRows.forEach(row => row.style.display = 'none');
+            filteredRows.slice(start, end).forEach(row => row.style.display = '');
+
+            const countStart = filteredRows.length > 0 ? start + 1 : 0;
+            const countEnd = Math.min(end, filteredRows.length);
+            document.getElementById('pageInfo').innerText = `${countStart} - ${countEnd}`;
+
+            // --- RENDER PAGINATION RINGKAS (MAX 5 TOMBOL) ---
+            let paginationHTML = '';
+            
+            paginationHTML += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 text-xs">Prev</button>`;
+
+            let startPage = Math.max(1, currentPage - 1);
+            let endPage = Math.min(totalPages, currentPage + 1);
+
+            if (currentPage === 1) {
+                endPage = Math.min(totalPages, 3);
+            } else if (currentPage === totalPages) {
+                startPage = Math.max(1, totalPages - 2);
+            }
+
+            if (startPage > 1) {
+                paginationHTML += `<button onclick="changePage(1)" class="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 font-semibold text-xs">1</button>`;
+                if (startPage > 2) {
+                    paginationHTML += `<span class="px-1 text-slate-400 text-xs">...</span>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    paginationHTML += `<button class="px-2.5 py-1 rounded bg-emerald-500 text-white font-bold text-xs">${i}</button>`;
+                } else {
+                    paginationHTML += `<button onclick="changePage(${i})" class="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 font-semibold text-xs">${i}</button>`;
+                }
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += `<span class="px-1 text-slate-400 text-xs">...</span>`;
+                }
+                paginationHTML += `<button onclick="changePage(${totalPages})" class="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 font-semibold text-xs">${totalPages}</button>`;
+            }
+
+            paginationHTML += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 text-xs">Next</button>`;
+            
+            document.getElementById('paginationControls').innerHTML = paginationHTML;
+        }
+
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderTable();
+        }
+
+        function searchTable() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            filteredRows = allRows.filter(row => row.innerText.toLowerCase().includes(query));
+            currentPage = 1;
+            renderTable();
+        }
+
+        renderTable();
+    </script>
 </body>
 </html>
