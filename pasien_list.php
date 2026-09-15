@@ -207,34 +207,62 @@ unset($_SESSION['flash_type']);
         let filteredRows = [...allRows];
 
         function renderTable() {
-            const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
-            if (currentPage > totalPages) currentPage = totalPages;
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
 
-            const start = (currentPage - 1) * rowsPerPage;
-            const end = start + rowsPerPage;
+    const start = (currentPage - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
 
-            allRows.forEach(row => row.style.display = 'none');
-            filteredRows.slice(start, end).forEach(row => row.style.display = '');
+    allRows.forEach(row => row.style.display = 'none');
+    filteredRows.slice(start, end).forEach(row => row.style.display = '');
 
-            const countStart = filteredRows.length > 0 ? start + 1 : 0;
-            const countEnd = Math.min(end, filteredRows.length);
-            document.getElementById('pageInfo').innerText = `${countStart} - ${countEnd}`;
+    const countStart = filteredRows.length > 0 ? start + 1 : 0;
+    const countEnd = Math.min(end, filteredRows.length);
+    document.getElementById('pageInfo').innerText = `${countStart} - ${countEnd}`;
 
-            let paginationHTML = '';
-            paginationHTML += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40">Prev</button>`;
-            
-            for (let i = 1; i <= totalPages; i++) {
-                if (i === currentPage) {
-                    paginationHTML += `<button class="px-2.5 py-1 rounded bg-emerald-500 text-white font-bold">${i}</button>`;
-                } else {
-                    paginationHTML += `<button onclick="changePage(${i})" class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100">${i}</button>`;
-                }
-            }
-            
-            paginationHTML += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40">Next</button>`;
-            
-            document.getElementById('paginationControls').innerHTML = paginationHTML;
+    // --- FITUR PAGINATION RINGKAS ---
+    let paginationHTML = '';
+    
+    // Tombol Prev
+    paginationHTML += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40">Prev</button>`;
+
+    // Logika Pintar Angka Halaman (Max 5 Opsi Tampil)
+    let startPage = Math.max(1, currentPage - 1);
+    let endPage = Math.min(totalPages, currentPage + 1);
+
+    if (currentPage === 1) {
+        endPage = Math.min(totalPages, 3);
+    } else if (currentPage === totalPages) {
+        startPage = Math.max(1, totalPages - 2);
+    }
+
+    if (startPage > 1) {
+        paginationHTML += `<button onclick="changePage(1)" class="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 font-semibold">1</button>`;
+        if (startPage > 2) {
+            paginationHTML += `<span class="px-1 text-slate-400">...</span>`;
         }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            paginationHTML += `<button class="px-2.5 py-1 rounded bg-emerald-500 text-white font-bold">${i}</button>`;
+        } else {
+            paginationHTML += `<button onclick="changePage(${i})" class="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 font-semibold">${i}</button>`;
+        }
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            paginationHTML += `<span class="px-1 text-slate-400">...</span>`;
+        }
+        paginationHTML += `<button onclick="changePage(${totalPages})" class="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 font-semibold">${totalPages}</button>`;
+    }
+
+    // Tombol Next
+    paginationHTML += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40">Next</button>`;
+    
+    document.getElementById('paginationControls').innerHTML = paginationHTML;
+}
 
         function changePage(page) {
             const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
